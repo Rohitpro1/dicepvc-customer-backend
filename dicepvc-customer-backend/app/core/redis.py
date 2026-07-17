@@ -20,8 +20,7 @@ def get_redis() -> Redis:
         # Configure SSL cert validation requirements if TLS (rediss://) is used
         ssl_args = {}
         if settings.REDIS_URL.startswith("rediss://"):
-            import ssl
-            ssl_args["ssl_cert_reqs"] = ssl.CERT_NONE
+            ssl_args["ssl_cert_reqs"] = "none"
             
         import redis.exceptions
         _redis_client = Redis.from_url(
