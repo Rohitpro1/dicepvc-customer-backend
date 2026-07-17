@@ -1,0 +1,62 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Next.js Frontend Integration Checks
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-node: '18'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Next.js Compile Build
+        run: npm run build
+
+  # Python FastAPI Backend Integration Checks
+  backend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          cd dicepvc-customer-backend
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Compilation & Integration Tests
+        run: |
+          cd dicepvc-customer-backend
+          python -m compileall app
+          python -m pytest --cov=app tests/
+
+  # Production Docker Image Assembly Proofing
+  docker-assemble:
+    needs: [frontend-build, backend-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build Next.js Docker Image
+        run: docker build -t dicepvc-frontend:latest .
+
+      - name: Build FastAPI Docker Image
+        run: docker build -t dicepvc-backend:latest ./dicepvc-customer-backend

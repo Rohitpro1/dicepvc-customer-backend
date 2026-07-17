@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # Next.js Customer Portal Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dicepvc-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+    restart: always
+    depends_on:
+      - backend
+
+  # FastAPI Customer Portal Backend
+  backend:
+    build:
+      context: ./dicepvc-customer-backend
+      dockerfile: Dockerfile
+    container_name: dicepvc-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - MONGO_URI=mongodb://mongodb:27017/dicepvc
+      - REDIS_URL=redis://redis:6379/0
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+      - RAZORPAY_WEBHOOK_SECRET=${RAZORPAY_WEBHOOK_SECRET}
+      - LICENSE_SERVICE_URL=${LICENSE_SERVICE_URL}
+      - LICENSE_SERVICE_API_KEY=${LICENSE_SERVICE_API_KEY}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM=${SMTP_FROM}
+      - JWT_SECRET=${JWT_SECRET}
+    restart: always
+    depends_on:
+      - redis
+      - mongodb
+
+  # Celery Asynchronous Tasks Worker
+  celery_worker:
+    build:
+      context: ./dicepvc-customer-backend
+      dockerfile: Dockerfile
+    container_name: dicepvc-celery-worker
+    command: celery -A app.workers.celery_app.celery_app worker --loglevel=info -c 4
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/dicepvc
+      - REDIS_URL=redis://redis:6379/0
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM=${SMTP_FROM}
+      - LICENSE_SERVICE_URL=${LICENSE_SERVICE_URL}
+      - LICENSE_SERVICE_API_KEY=${LICENSE_SERVICE_API_KEY}
+    restart: always
+    depends_on:
+      - redis
+      - mongodb
+
+  # Redis Cache & Task Queue
+  redis:
+    image: redis:7-alpine
+    container_name: dicepvc-redis
+    ports:
+      - "6379:6379"
+    restart: always
+    volumes:
+      - redis_data:/data
+
+  # MongoDB Instance (Fallback local option, Atlas replaces in pure cloud deployments)
+  mongodb:
+    image: mongo:6
+    container_name: dicepvc-mongodb
+    ports:
+      - "27017:27017"
+    restart: always
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  redis_data:
+  mongo_data:

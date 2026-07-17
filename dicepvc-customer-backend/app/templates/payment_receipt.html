@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Payment Receipt</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f6f9fc; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 8px;">
+        <h2 style="color: #333333;">Payment Confirmation</h2>
+        <p>Thank you for your payment! Your transaction was captured successfully.</p>
+        <p><strong>Payment Summary:</strong></p>
+        <ul>
+            <li><strong>Invoice ID:</strong> {{ invoice_id }}</li>
+            <li><strong>Order ID:</strong> {{ order_id }}</li>
+            <li><strong>Amount Charged:</strong> {{ amount }} {{ currency }}</li>
+            <li><strong>Payment Method:</strong> {{ method }}</li>
+            <li><strong>Transaction Date:</strong> {{ date }}</li>
+        </ul>
+        <p>You can view and download all past invoices directly from the Billing tab in your customer dashboard.</p>
+    </div>
+</body>
+</html>

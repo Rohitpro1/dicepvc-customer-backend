@@ -1,0 +1,47 @@
+version: "3.9"
+
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: dicepvc_customer_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    container_name: dicepvc_customer_redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+  backend:
+    build: .
+    container_name: dicepvc_customer_api
+    environment:
+      - MONGO_URI=mongodb://mongo:27017
+      - REDIS_URL=redis://redis:6379/0
+      - PORT=8000
+    depends_on:
+      - mongo
+      - redis
+    ports:
+      - "8000:8000"
+    restart: always
+
+  celery_worker:
+    build: .
+    container_name: dicepvc_customer_worker
+    command: celery -A app.workers.celery_app.celery_app worker --loglevel=info
+    environment:
+      - MONGO_URI=mongodb://mongo:27017
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - mongo
+    restart: always
+
+volumes:
+  mongodata:

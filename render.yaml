@@ -1,0 +1,98 @@
+services:
+  # Next.js Customer Portal Frontend Web Service
+  - type: web
+    name: dicepvc-frontend
+    env: node
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          name: dicepvc-backend
+          type: web
+          property: url
+
+  # FastAPI customer backend Docker service
+  - type: web
+    name: dicepvc-backend
+    env: docker
+    dockerContext: ./dicepvc-customer-backend
+    dockerfilePath: Dockerfile
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: MONGO_URI
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          name: dicepvc-cache
+          type: redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: LICENSE_SERVICE_URL
+        sync: false
+      - key: LICENSE_SERVICE_API_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_NAME
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      - key: DASHBOARD_URL
+        sync: false
+
+  # Background Celery Task Runner private worker service
+  - type: worker
+    name: dicepvc-worker
+    env: docker
+    dockerContext: ./dicepvc-customer-backend
+    dockerfilePath: Dockerfile
+    dockerCommand: celery -A app.workers.celery_app.celery_app worker --loglevel=info
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          name: dicepvc-cache
+          type: redis
+          property: connectionString
+      - key: LICENSE_SERVICE_URL
+        sync: false
+      - key: LICENSE_SERVICE_API_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_NAME
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+
+# Managed Redis instance for rate limiting and task queues
+  - type: redis
+    name: dicepvc-cache
+    plan: free
+    ipAllowList: [] # Private network access only

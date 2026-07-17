@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Your License Key</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f6f9fc; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 8px;">
+        <h2 style="color: #333333;">Your DicePVC License Key</h2>
+        <p>Your subscription is active! Below is your new serial licensing key to activate the software application:</p>
+        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 16px; font-weight: bold; text-align: center; color: #1f2937;">
+            {{ license_key }}
+        </div>
+        <p><strong>License Details:</strong></p>
+        <ul>
+            <li><strong>Plan Name:</strong> {{ plan_name }}</li>
+            <li><strong>Device Limit:</strong> {{ device_limit }} max hardware nodes</li>
+            <li><strong>Expiration Date:</strong> {{ expires_at }}</li>
+        </ul>
+        <p>To register this key, open the DicePVC client application, go to settings, click "Activate Key", and paste the serial string above.</p>
+    </div>
+</body>
+</html>
