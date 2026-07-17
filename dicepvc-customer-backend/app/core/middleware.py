@@ -62,16 +62,15 @@ class RedisRateLimiterMiddleware(BaseHTTPMiddleware):
         key = f"rate_limit:{client_ip}:{request.url.path}"
         
         try:
-            # Simple window count rate limiter using Redis
-            current = await redis_conn.get(key)
-            if current and int(current) >= self.rate_limit:
-                raise RateLimitException("Too many requests. Limit exceeded.")
+            # Atomic increment
+            current = await redis_conn.incr(key)
             
-            # Increment and set TTL if new key
-            async with redis_conn.pipeline(transaction=True) as pipe:
-                await pipe.incr(key)
-                await pipe.expire(key, self.window_seconds)
-                await pipe.execute()
+            # Set TTL on new key
+            if current == 1:
+                await redis_conn.expire(key, self.window_seconds)
+                
+            if current > self.rate_limit:
+                raise RateLimitException("Too many requests. Limit exceeded.")
         except RateLimitException as ex:
             raise ex
         except Exception as err:

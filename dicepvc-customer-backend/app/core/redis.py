@@ -23,6 +23,7 @@ def get_redis() -> Redis:
             import ssl
             ssl_args["ssl_cert_reqs"] = ssl.CERT_NONE
             
+        import redis.exceptions
         _redis_client = Redis.from_url(
             settings.REDIS_URL,
             decode_responses=True,
@@ -30,6 +31,7 @@ def get_redis() -> Redis:
             socket_timeout=5.0,
             socket_connect_timeout=5.0,
             retry_on_timeout=True,
+            retry_on_error=[redis.exceptions.ConnectionError, redis.exceptions.TimeoutError],
             **ssl_args
         )
     return _redis_client
