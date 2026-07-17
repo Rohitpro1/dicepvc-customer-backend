@@ -2,9 +2,9 @@ import httpx
 import asyncio
 import logging
 from typing import Any, Optional
-from redis.asyncio import Redis
 from app.core.config import settings
 from app.core.exceptions import ExternalServiceException
+from app.core.redis import get_redis
 
 logger = logging.getLogger("license_client")
 
@@ -16,7 +16,7 @@ class LicenseServiceClient:
             "Authorization": f"Bearer {settings.LICENSE_SERVICE_API_KEY}",
             "Content-Type": "application/json"
         }
-        self.redis = Redis.from_url(settings.REDIS_URL, decode_responses=True)
+        self.redis = get_redis()
 
     async def _call_api(self, method: str, path: str, json_data: dict = None, params: dict = None, timeout: float = 10.0) -> Any:
         circuit_key = "circuit:license_service"

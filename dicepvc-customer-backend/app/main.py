@@ -2,13 +2,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, APIRouter, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from redis.asyncio import Redis
 
 from app.core.config import settings
 from app.core.database import connect_to_mongo, close_mongo_connection, create_mongodb_indexes
 from app.core.logging import setup_logging
 from app.core.exceptions import BaseAppException
 from app.core.middleware import RequestLoggingMiddleware, RedisRateLimiterMiddleware
+from app.core.redis import get_redis, close_redis
 
 
 @asynccontextmanager
@@ -21,12 +21,12 @@ async def lifespan(app: FastAPI):
     await create_mongodb_indexes()
     
     # Initialize async Redis client pool
-    app.state.redis = Redis.from_url(settings.REDIS_URL, decode_responses=True)
+    app.state.redis = get_redis()
     
     yield
     
     # Safely close Redis and Mongo
-    await app.state.redis.close()
+    await close_redis()
     await close_mongo_connection()
 
 
@@ -126,6 +126,27 @@ api_router.include_router(admin_router)
 api_router.include_router(licenses_router)
 
 app.include_router(api_router)
+
+
+from app.domains.billing.schemas import RazorpayOrderCreateInput, RazorpayPaymentVerifyInput
+from app.domains.billing import services as billing_services
+from app.core.dependencies import get_current_user
+from fastapi import Depends
+
+@app.post("/api/create-order", status_code=201)
+async def root_create_order(payload: RazorpayOrderCreateInput, current_user: dict = Depends(get_current_user)):
+    """Direct un-prefixed route to create Razorpay orders."""
+    return await billing_services.create_razorpay_order(
+        amount=payload.amount,
+        currency=payload.currency,
+        receipt=payload.receipt
+    )
+
+@app.post("/api/verify-payment")
+async def root_verify_payment(payload: RazorpayPaymentVerifyInput, current_user: dict = Depends(get_current_user)):
+    """Direct un-prefixed route to verify Razorpay signatures."""
+    return await billing_services.verify_razorpay_payment(payload)
+
 
 
 if __name__ == "__main__":

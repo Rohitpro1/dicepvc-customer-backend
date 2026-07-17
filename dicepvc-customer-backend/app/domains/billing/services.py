@@ -1,13 +1,14 @@
 import secrets
 import hmac
 import hashlib
+import razorpay
 from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
 from fastapi import status
 
 from app.core.database import col
 from app.core.exceptions import BaseAppException, NotFoundException
-from app.domains.billing.schemas import PlanCreateInput, SubscribeInput, CouponCreateInput
+from app.domains.billing.schemas import PlanCreateInput, SubscribeInput, CouponCreateInput, RazorpayPaymentVerifyInput
 from app.domains.licenses.client import LicenseServiceClient
 from app.models.helpers import new_id, now_iso
 from app.core.config import settings
@@ -459,3 +460,67 @@ async def retry_failed_order(order_id: str, user_id: str) -> dict:
         "amount": order["amount"],
         "currency": order["currency"]
     }
+
+
+async def create_razorpay_order(amount: int, currency: str = "INR", receipt: Optional[str] = None) -> dict:
+    """Sends a request to Razorpay API to generate a checkout order."""
+    if amount < 100:
+        raise BaseAppException("Amount must be at least 100 paise.", status_code=status.HTTP_400_BAD_REQUEST)
+
+    if not settings.RAZORPAY_KEY_ID or not settings.RAZORPAY_KEY_SECRET:
+        raise BaseAppException("Razorpay credentials are not configured.", status_code=status.HTTP_401_UNAUTHORIZED)
+
+    try:
+        # Initialize Razorpay SDK client
+        client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+        data = {
+            "amount": amount,
+            "currency": currency,
+            "receipt": receipt or f"rcpt_{secrets.token_hex(4)}"
+        }
+        order = client.order.create(data=data)
+        return {
+            "order_id": order["id"],
+            "amount": order["amount"],
+            "currency": order["currency"]
+        }
+    except Exception as e:
+        print(f"[Razorpay] Create Order failed: {e}")
+        raise BaseAppException(f"Failed to create order with Razorpay: {str(e)}", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+async def verify_razorpay_payment(payload: RazorpayPaymentVerifyInput) -> dict:
+    """Cryptographically verifies payment signature using HMAC SHA256."""
+    if not payload.razorpay_order_id or not payload.razorpay_payment_id or not payload.razorpay_signature:
+        raise BaseAppException("Missing required payment verification fields.", status_code=status.HTTP_400_BAD_REQUEST)
+
+    if not settings.RAZORPAY_KEY_SECRET:
+        raise BaseAppException("Razorpay credentials are not configured.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # Recreate the signature: HMAC-SHA256(order_id + "|" + payment_id, KEY_SECRET)
+    msg = f"{payload.razorpay_order_id}|{payload.razorpay_payment_id}"
+    generated_sig = hmac.new(
+        key=settings.RAZORPAY_KEY_SECRET.encode(),
+        msg=msg.encode(),
+        digestmod=hashlib.sha256
+    ).hexdigest()
+
+    if generated_sig != payload.razorpay_signature:
+        print(f"[Razorpay] Signature mismatch! Expected: {generated_sig}, Got: {payload.razorpay_signature}")
+        raise BaseAppException("Payment verification failed. Signature mismatch.", status_code=status.HTTP_400_BAD_REQUEST)
+
+    # Find the order in our database
+    order = await col("orders").find_one({"razorpay_order_id": payload.razorpay_order_id})
+    if order:
+        if order["status"] != "paid":
+            # Direct subscription provisioning orchestrator hook
+            from app.domains.billing.orchestrator import PurchaseOrchestrator
+            orchestrator = PurchaseOrchestrator()
+            await orchestrator.verify_and_process_checkout(
+                razorpay_order_id=payload.razorpay_order_id,
+                payment_id=payload.razorpay_payment_id,
+                method="card"
+            )
+
+    return {"status": "success", "message": "Payment verified and processed successfully."}
+

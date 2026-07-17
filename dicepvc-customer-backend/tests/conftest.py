@@ -83,7 +83,6 @@ def mock_db_connection(monkeypatch):
     
     # Patch database functions
     monkeypatch.setattr(app.core.database, "get_db", lambda: mock_db)
-    monkeypatch.setattr(app.core.database, "col", lambda name: mock_db[name])
     app.core.database._db = mock_db
     return mock_db
 
@@ -97,6 +96,27 @@ def mock_redis_and_celery(monkeypatch):
     mock_redis.set = AsyncMock(return_value=True)
     mock_redis.delete = AsyncMock(return_value=True)
     mock_redis.ping = AsyncMock(return_value=True)
+    mock_redis.incr = AsyncMock(return_value=1)
+    mock_redis.expire = AsyncMock(return_value=True)
+    mock_redis.close = AsyncMock()
+    
+    # Mock pipeline for RateLimiter middleware
+    mock_pipeline = MagicMock()
+    mock_pipeline.incr = AsyncMock(return_value=1)
+    mock_pipeline.expire = AsyncMock(return_value=True)
+    mock_pipeline.execute = AsyncMock(return_value=[1, True])
+    
+    class AsyncContextManagerMock:
+        async def __aenter__(self):
+            return mock_pipeline
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+            
+    mock_redis.pipeline = MagicMock(return_value=AsyncContextManagerMock())
+    
+    # Patch Redis.from_url to return our mock_redis client
+    import redis.asyncio
+    monkeypatch.setattr(redis.asyncio.Redis, "from_url", lambda *args, **kwargs: mock_redis)
     
     # Mock Celery send task
     from app.workers.celery_app import celery_app

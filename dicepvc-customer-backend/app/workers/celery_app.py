@@ -17,6 +17,13 @@ celery_app.conf.update(
     enable_utc=True,
 )
 
+if settings.REDIS_URL.startswith("rediss://"):
+    import ssl
+    celery_app.conf.update(
+        broker_use_ssl={"ssl_cert_reqs": ssl.CERT_NONE},
+        redis_backend_use_ssl={"ssl_cert_reqs": ssl.CERT_NONE}
+    )
+
 # Production Celery tasks
 @celery_app.task(bind=True, name="send_transactional_email", max_retries=5)
 def send_transactional_email(self, to_email: str, subject: str, template_name: str, context: dict):

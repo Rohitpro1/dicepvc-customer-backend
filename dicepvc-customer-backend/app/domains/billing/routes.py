@@ -10,7 +10,10 @@ from app.domains.billing.schemas import (
     SubscribeInput,
     UpgradeInput,
     CouponCreateInput,
-    SubscriptionOut
+    SubscriptionOut,
+    RazorpayOrderCreateInput,
+    RazorpayOrderOut,
+    RazorpayPaymentVerifyInput
 )
 
 router = APIRouter(prefix="/billing", tags=["billing"])
@@ -199,3 +202,22 @@ async def download_invoice_pdf(payment_id: str, current_user: dict = Depends(get
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=invoice_{payment_id}.pdf"}
     )
+
+
+@router.post("/create-order", response_model=RazorpayOrderOut, status_code=status.HTTP_201_CREATED)
+async def create_order(payload: RazorpayOrderCreateInput, current_user: dict = Depends(get_current_user)):
+    """Backend endpoint to create a Razorpay checkout order."""
+    order = await services.create_razorpay_order(
+        amount=payload.amount,
+        currency=payload.currency,
+        receipt=payload.receipt
+    )
+    return order
+
+
+@router.post("/verify-payment")
+async def verify_payment(payload: RazorpayPaymentVerifyInput, current_user: dict = Depends(get_current_user)):
+    """Backend endpoint to verify Razorpay checkout payment signature."""
+    result = await services.verify_razorpay_payment(payload)
+    return result
+

@@ -70,3 +70,22 @@ class CouponCreateInput(BaseModel):
     discount_value: float = Field(gt=0.0)
     max_redemptions: int = Field(gt=0)
     expires_at: datetime
+
+
+class RazorpayOrderCreateInput(BaseModel):
+    amount: int = Field(..., ge=100, description="Amount in paise (minimum 100)")
+    currency: str = "INR"
+    receipt: Optional[str] = None
+
+
+class RazorpayOrderOut(BaseModel):
+    order_id: str
+    amount: int
+    currency: str
+
+
+class RazorpayPaymentVerifyInput(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+

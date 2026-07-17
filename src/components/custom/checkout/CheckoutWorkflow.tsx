@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import CheckoutDialog from "./CheckoutDialog";
 import PaymentPending from "./PaymentPending";
 import PaymentSuccess from "./PaymentSuccess";
 import PaymentFailed from "./PaymentFailed";
 import LicenseGenerationLoading from "./LicenseGenerationLoading";
 import ActivationSuccess from "./ActivationSuccess";
+import { fetchWithRetry } from "@/lib/api/client";
 
 interface CheckoutWorkflowProps {
   isOpen: boolean;
@@ -28,27 +29,106 @@ export function CheckoutWorkflow({
   >("checkout");
 
   const [email, setEmail] = useState("");
+  const [errorDetail, setErrorDetail] = useState("Payment failed. Please try again.");
+
+  useEffect(() => {
+    // Load Razorpay Checkout script dynamically
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   if (!isOpen) return null;
 
-  const handleCheckoutSubmit = (userEmail: string, card: string) => {
+  const handleCheckoutSubmit = async (userEmail: string, card: string) => {
     setEmail(userEmail);
     setStep("pending");
-    
-    // Simulate Razorpay Gateway latency
-    setTimeout(() => {
-      // Direct mock logic: card number ending in '0000' triggers a failure for demo purposes
-      if (card.endsWith("0000")) {
-        setStep("failed");
-      } else {
-        setStep("success");
+
+    try {
+      // 1. Convert price to numerical amount in paise (e.g. "$129.00" -> 12900 paise)
+      const numericalPrice = parseFloat(price.replace(/[^0-9.]/g, ""));
+      const amountInPaise = isNaN(numericalPrice) ? 12900 : Math.round(numericalPrice * 100);
+
+      // 2. Create Razorpay order on backend
+      const res = await fetchWithRetry("/billing/create-order", {
+        method: "POST",
+        body: JSON.stringify({ amount: amountInPaise, currency: "INR" })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to create order on backend.");
       }
-    }, 2000);
+
+      const orderData = await res.json();
+
+      // 3. Configure Razorpay Standard Checkout options
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_TEchnNOLHizcDZ",
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "DicePVC AI",
+        description: `Purchase ${planName} Plan`,
+        order_id: orderData.order_id,
+        handler: async function (response: any) {
+          setStep("pending");
+          try {
+            // 4. Verify payment signature on backend
+            const verifyRes = await fetchWithRetry("/billing/verify-payment", {
+              method: "POST",
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            });
+
+            if (verifyRes.ok) {
+              setStep("success");
+            } else {
+              const errorData = await verifyRes.json();
+              setErrorDetail(errorData.error || "Payment verification failed.");
+              setStep("failed");
+            }
+          } catch (err: any) {
+            setErrorDetail(err.message || "Payment verification failed.");
+            setStep("failed");
+          }
+        },
+        prefill: {
+          email: userEmail,
+        },
+        theme: {
+          color: "#3399cc",
+        },
+        modal: {
+          ondismiss: function () {
+            console.log("Razorpay checkout modal closed by user.");
+            setStep("checkout");
+          }
+        }
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on("payment.failed", function (resp: any) {
+        setErrorDetail(resp.error.description || "Payment transaction failed.");
+        setStep("failed");
+      });
+      rzp.open();
+
+    } catch (err: any) {
+      setErrorDetail(err.message || "Failed to initiate payment session.");
+      setStep("failed");
+    }
   };
 
   const handleProceedToLicense = () => {
     setStep("license_loading");
-    
+
     // Simulate Key Generation latency
     setTimeout(() => {
       setStep("activated");
@@ -91,7 +171,7 @@ export function CheckoutWorkflow({
         <PaymentFailed
           onRetry={handleRetry}
           onClose={handleCloseAll}
-          errorDetail="Card transaction rejected by issuer. (Code: REF_403_DECLINED). Please retry with another card or payment option."
+          errorDetail={errorDetail}
         />
       );
     case "license_loading":
