@@ -99,8 +99,19 @@ async def initiate_checkout(user_id: str, payload: SubscribeInput) -> dict:
             final_price = max(0.0, final_price - coupon["discount_value"])
         coupon_applied = coupon["code"]
 
-    # 3. Mock Razorpay Order Setup (Phase 2 Mock)
-    rzp_order_id = f"order_{secrets.token_hex(8)}"
+    # 3. Create Real Razorpay Order
+    amount_in_paise = int(round(final_price * 100))
+    try:
+        rzp_order = await create_razorpay_order(
+            amount=amount_in_paise,
+            currency=plan.get("currency", "INR"),
+            receipt=f"rcpt_sub_{secrets.token_hex(4)}"
+        )
+        rzp_order_id = rzp_order["order_id"]
+    except Exception as e:
+        logger.error(f"[Razorpay] Subscription Order creation failed: {e}", exc_info=True)
+        raise BaseAppException(f"Failed to create order with Razorpay: {str(e)}", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     now = datetime.now(timezone.utc)
 
     # 4. Save Pending Order
@@ -464,17 +475,12 @@ async def retry_failed_order(order_id: str, user_id: str) -> dict:
 
 async def create_razorpay_order(amount: int, currency: str = "INR", receipt: Optional[str] = None) -> dict:
     """Sends a request to Razorpay API to generate a checkout order."""
+    logger.info(f"[Razorpay] Initiating order creation: amount={amount} paise, currency={currency}")
     if amount < 100:
         raise BaseAppException("Amount must be at least 100 paise.", status_code=status.HTTP_400_BAD_REQUEST)
 
     if not settings.RAZORPAY_KEY_ID or not settings.RAZORPAY_KEY_SECRET:
-        if settings.DEBUG:
-            # Generate simulated order in debug mode if credentials are empty
-            return {
-                "order_id": f"order_sim_{secrets.token_hex(8)}",
-                "amount": amount,
-                "currency": currency
-            }
+        logger.error("[Razorpay] Credentials missing in environment configuration.")
         raise BaseAppException("Razorpay credentials are not configured.", status_code=status.HTTP_401_UNAUTHORIZED)
 
     try:
@@ -486,50 +492,46 @@ async def create_razorpay_order(amount: int, currency: str = "INR", receipt: Opt
             "receipt": receipt or f"rcpt_{secrets.token_hex(4)}"
         }
         order = client.order.create(data=data)
+        logger.info(f"[Razorpay] Order created successfully: {order['id']}")
         return {
             "order_id": order["id"],
             "amount": order["amount"],
             "currency": order["currency"]
         }
     except Exception as e:
-        print(f"[Razorpay] Create Order failed: {e}")
-        if settings.DEBUG:
-            # Fallback to simulated order in debug mode to allow testing with invalid/expired test keys
-            return {
-                "order_id": f"order_sim_{secrets.token_hex(8)}",
-                "amount": amount,
-                "currency": currency
-            }
+        logger.error(f"[Razorpay] Create Order failed: {e}", exc_info=True)
         raise BaseAppException(f"Failed to create order with Razorpay: {str(e)}", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 async def verify_razorpay_payment(payload: RazorpayPaymentVerifyInput) -> dict:
     """Cryptographically verifies payment signature using HMAC SHA256."""
+    logger.info(f"[Razorpay] Verifying payment signature: order_id={payload.razorpay_order_id}, payment_id={payload.razorpay_payment_id}")
     if not payload.razorpay_order_id or not payload.razorpay_payment_id or not payload.razorpay_signature:
         raise BaseAppException("Missing required payment verification fields.", status_code=status.HTTP_400_BAD_REQUEST)
 
-    is_simulated = payload.razorpay_order_id.startswith("order_sim_")
+    if not settings.RAZORPAY_KEY_SECRET:
+        logger.error("[Razorpay] Key secret missing for signature verification.")
+        raise BaseAppException("Razorpay credentials are not configured.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    if not is_simulated:
-        if not settings.RAZORPAY_KEY_SECRET:
-            raise BaseAppException("Razorpay credentials are not configured.", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    # Recreate the signature: HMAC-SHA256(order_id + "|" + payment_id, KEY_SECRET)
+    msg = f"{payload.razorpay_order_id}|{payload.razorpay_payment_id}"
+    generated_sig = hmac.new(
+        key=settings.RAZORPAY_KEY_SECRET.encode(),
+        msg=msg.encode(),
+        digestmod=hashlib.sha256
+    ).hexdigest()
 
-        # Recreate the signature: HMAC-SHA256(order_id + "|" + payment_id, KEY_SECRET)
-        msg = f"{payload.razorpay_order_id}|{payload.razorpay_payment_id}"
-        generated_sig = hmac.new(
-            key=settings.RAZORPAY_KEY_SECRET.encode(),
-            msg=msg.encode(),
-            digestmod=hashlib.sha256
-        ).hexdigest()
+    if generated_sig != payload.razorpay_signature:
+        logger.error(f"[Razorpay] Signature mismatch! Expected: {generated_sig}, Got: {payload.razorpay_signature}")
+        raise BaseAppException("Payment verification failed. Signature mismatch.", status_code=status.HTTP_400_BAD_REQUEST)
 
-        if generated_sig != payload.razorpay_signature:
-            print(f"[Razorpay] Signature mismatch! Expected: {generated_sig}, Got: {payload.razorpay_signature}")
-            raise BaseAppException("Payment verification failed. Signature mismatch.", status_code=status.HTTP_400_BAD_REQUEST)
+    logger.info("[Razorpay] Signature verification passed.")
 
     # Find the order in our database
     order = await col("orders").find_one({"razorpay_order_id": payload.razorpay_order_id})
     if order:
         if order["status"] != "paid":
+            logger.info(f"[Orchestrator] Invoking PurchaseOrchestrator for order: {order['id']}")
             # Direct subscription provisioning orchestrator hook
             from app.domains.billing.orchestrator import PurchaseOrchestrator
             orchestrator = PurchaseOrchestrator()
@@ -538,6 +540,10 @@ async def verify_razorpay_payment(payload: RazorpayPaymentVerifyInput) -> dict:
                 payment_id=payload.razorpay_payment_id,
                 method="card"
             )
+        else:
+            logger.info(f"[Razorpay] Order {order['id']} already processed.")
+    else:
+        logger.warning(f"[Razorpay] Order not found in local database for razorpay_order_id: {payload.razorpay_order_id}")
 
     return {"status": "success", "message": "Payment verified and processed successfully."}
 
