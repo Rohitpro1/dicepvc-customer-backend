@@ -76,6 +76,7 @@ class RazorpayOrderCreateInput(BaseModel):
     amount: int = Field(..., ge=100, description="Amount in paise (minimum 100)")
     currency: str = "INR"
     receipt: Optional[str] = None
+    plan_id: str = Field(..., description="The subscription_plans document id from the database")
 
 
 class RazorpayOrderOut(BaseModel):

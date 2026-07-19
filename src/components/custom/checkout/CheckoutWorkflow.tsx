@@ -14,6 +14,7 @@ interface CheckoutWorkflowProps {
   onClose: () => void;
   planName: string;
   price: string;
+  planId: string;  // Real DB plan id from subscription_plans collection
   onSuccess?: () => void;
 }
 
@@ -22,6 +23,7 @@ export function CheckoutWorkflow({
   onClose,
   planName,
   price,
+  planId,
   onSuccess,
 }: CheckoutWorkflowProps) {
   const [step, setStep] = useState<
@@ -54,10 +56,10 @@ export function CheckoutWorkflow({
       const numericalPrice = parseFloat(price.replace(/[^0-9.]/g, ""));
       const amountInPaise = isNaN(numericalPrice) ? 12900 : Math.round(numericalPrice * 100);
 
-      // Create Razorpay order on backend
+      // Create Razorpay order on backend — plan_id is the real DB id
       const res = await fetchWithRetry("/billing/create-order", {
         method: "POST",
-        body: JSON.stringify({ amount: amountInPaise, currency: "INR" }),
+        body: JSON.stringify({ amount: amountInPaise, currency: "INR", plan_id: planId }),
       });
 
       const orderData = await res.json();

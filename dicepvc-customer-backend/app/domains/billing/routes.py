@@ -207,6 +207,13 @@ async def download_invoice_pdf(payment_id: str, current_user: dict = Depends(get
 @router.post("/create-order", response_model=RazorpayOrderOut, status_code=status.HTTP_201_CREATED)
 async def create_order(payload: RazorpayOrderCreateInput, current_user: dict = Depends(get_current_user)):
     """Backend endpoint to create a Razorpay checkout order."""
+    # Validate that the plan exists before creating the Razorpay order
+    from app.core.database import col
+    from app.core.exceptions import NotFoundException
+    plan = await col("subscription_plans").find_one({"id": payload.plan_id, "is_deleted": {"$ne": True}})
+    if not plan:
+        raise NotFoundException(f"Plan '{payload.plan_id}' not found.")
+
     order = await services.create_razorpay_order(
         amount=payload.amount,
         currency=payload.currency,
@@ -214,17 +221,12 @@ async def create_order(payload: RazorpayOrderCreateInput, current_user: dict = D
     )
     
     # Save the order in our database so verify-payment can process it!
-    from app.core.database import col
     from app.models.helpers import new_id
-    
-    plan_id = "plan_standard"
-    if payload.amount > 10000:
-        plan_id = "plan_enterprise"
-        
+
     order_doc = {
         "id": new_id("ord"),
         "user_id": current_user["id"],
-        "plan_id": plan_id,
+        "plan_id": payload.plan_id,  # Real DB plan ID — not hardcoded
         "razorpay_order_id": order["order_id"],
         "amount": payload.amount / 100.0,
         "currency": payload.currency,
