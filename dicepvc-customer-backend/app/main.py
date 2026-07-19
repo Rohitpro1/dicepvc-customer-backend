@@ -136,11 +136,39 @@ from fastapi import Depends
 @app.post("/api/create-order", status_code=201)
 async def root_create_order(payload: RazorpayOrderCreateInput, current_user: dict = Depends(get_current_user)):
     """Direct un-prefixed route to create Razorpay orders."""
-    return await billing_services.create_razorpay_order(
+    order = await billing_services.create_razorpay_order(
         amount=payload.amount,
         currency=payload.currency,
         receipt=payload.receipt
     )
+    
+    # Save the order in our database so verify-payment can process it!
+    from app.core.database import col
+    from app.models.helpers import new_id
+    from datetime import datetime, timezone
+    
+    plan_id = "plan_standard"
+    if payload.amount > 10000:
+        plan_id = "plan_enterprise"
+        
+    order_doc = {
+        "id": new_id("ord"),
+        "user_id": current_user["id"],
+        "plan_id": plan_id,
+        "razorpay_order_id": order["order_id"],
+        "amount": payload.amount / 100.0,
+        "currency": payload.currency,
+        "coupon_code": None,
+        "status": "created",
+        "is_deleted": False,
+        "deleted_at": None,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+        "created_by": current_user["id"],
+        "updated_by": current_user["id"]
+    }
+    await col("orders").insert_one(order_doc)
+    return order
 
 @app.post("/api/verify-payment")
 async def root_verify_payment(payload: RazorpayPaymentVerifyInput, current_user: dict = Depends(get_current_user)):
