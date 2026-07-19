@@ -1,6 +1,7 @@
 import secrets
 import hmac
 import hashlib
+import logging
 import razorpay
 from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
@@ -12,6 +13,8 @@ from app.domains.billing.schemas import PlanCreateInput, SubscribeInput, CouponC
 from app.domains.licenses.client import LicenseServiceClient
 from app.models.helpers import new_id, now_iso
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 license_client = LicenseServiceClient()
 GRACE_PERIOD_DAYS = 3
