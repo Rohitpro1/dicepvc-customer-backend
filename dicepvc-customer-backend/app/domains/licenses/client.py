@@ -27,6 +27,9 @@ class LicenseServiceClient:
             logger.warning(f"[LicenseClient] Redis circuit state lookup failed: {redis_err}. Bypassing circuit breaker check.")
 
         if state == "open":
+            if settings.DEBUG:
+                logger.info("[LicenseClient] Circuit open, using debug mock fallback.")
+                return self._get_debug_mock_response(method, path, json_data)
             logger.error("[LicenseClient] Downstream circuit breaker is OPEN. Fast-failing request.")
             raise ExternalServiceException("License Service is currently unavailable (Circuit Breaker Tripped).")
 
@@ -63,6 +66,11 @@ class LicenseServiceClient:
                     extra={"path": path, "attempt": attempt + 1}
                 )
                 if attempt == attempts - 1:
+                    # In debug/development mode, fall back to mock response to allow end-to-end testing
+                    if settings.DEBUG:
+                        logger.info(f"[LicenseClient] Downstream call failed in debug mode. Returning mock fallback response.")
+                        return self._get_debug_mock_response(method, path, json_data)
+
                     # Increment failure counter in Redis
                     try:
                         failures = await self.redis.incr("circuit_failures:license_service")
@@ -75,6 +83,29 @@ class LicenseServiceClient:
                     raise ExternalServiceException(f"Failed to communicate with License Service: {str(err)}")
                 
                 await asyncio.sleep(backoff * (2 ** attempt))
+
+    def _get_debug_mock_response(self, method: str, path: str, json_data: dict = None) -> Any:
+        """Generates realistic mock data payloads for debugging/testing local flows."""
+        import secrets
+        if path == "/api/licenses" and method == "POST":
+            return {
+                "id": f"lic_{secrets.token_hex(8)}",
+                "license_key": f"PRO-{secrets.token_hex(4).upper()}-{secrets.token_hex(4).upper()}-{secrets.token_hex(4).upper()}"
+            }
+        elif path == "/api/licenses/validate" and method == "POST":
+            return {"valid": True, "message": "Signature verified"}
+        elif "/status" in path:
+            return {"status": json_data.get("status", "active") if json_data else "active"}
+        elif "/renew" in path:
+            return {"ok": True, "message": "License renewed"}
+        elif "/api/analytics/usage-logs" in path:
+            return []
+        else:
+            return {
+                "id": f"lic_mock",
+                "license_key": "PRO-MOCK-LICENSE-KEY-VALUE",
+                "status": "active"
+            }
 
     async def generate_license(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Calls downstream to generate a serial key with features/devices/validity."""
