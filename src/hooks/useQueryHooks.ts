@@ -299,3 +299,162 @@ export function useAdminAuditLogs(page = 1, limit = 20) {
     },
   });
 }
+
+export function useUpdateUserRoleMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      await fetchWithRetry(`/admin/users/${userId}/role`, {
+        method: "PUT",
+        body: JSON.stringify({ role })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adminUsers"] });
+    }
+  });
+}
+
+export function useSuspendUserMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      await fetchWithRetry(`/admin/users/${userId}/suspend`, {
+        method: "POST"
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adminUsers"] });
+    }
+  });
+}
+
+export function useUnsuspendUserMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      await fetchWithRetry(`/admin/users/${userId}/unsuspend`, {
+        method: "POST"
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adminUsers"] });
+    }
+  });
+}
+
+export function useRefundPaymentMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (paymentId: string) => {
+      await fetchWithRetry(`/billing/payments/${paymentId}/refund`, {
+        method: "POST"
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["paymentHistory"] });
+      queryClient.invalidateQueries({ queryKey: ["adminStats"] });
+    }
+  });
+}
+
+export function useCreateSoftwareVersionMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      version: string;
+      changelog: string;
+      download_url: string;
+      min_os_version?: string;
+    }) => {
+      const res = await fetchWithRetry("/admin/software-versions", {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["availableDownloads"] });
+    }
+  });
+}
+
+export function useAdminSyncLogs(page = 1, limit = 20) {
+  return useQuery({
+    queryKey: ["adminSyncLogs", page, limit],
+    queryFn: async () => {
+      const res = await fetchWithRetry(`/admin/licenses/sync/logs?page=${page}&limit=${limit}`);
+      return res.json();
+    }
+  });
+}
+
+export function useAdminSyncDiscrepancies() {
+  return useQuery({
+    queryKey: ["adminSyncDiscrepancies"],
+    queryFn: async () => {
+      const res = await fetchWithRetry("/admin/licenses/sync/discrepancies");
+      return res.json();
+    }
+  });
+}
+
+export function useAdminTriggerSyncMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetchWithRetry("/admin/licenses/sync", {
+        method: "POST"
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["adminSyncLogs"] });
+      queryClient.invalidateQueries({ queryKey: ["adminSyncDiscrepancies"] });
+    }
+  });
+}
+
+export function useAssignTicketMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ticketId, assigneeId }: { ticketId: string; assigneeId: string }) => {
+      await fetchWithRetry(`/tickets/${ticketId}/assign`, {
+        method: "POST",
+        body: JSON.stringify({ assignee_id: assigneeId })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["supportTickets"] });
+    }
+  });
+}
+
+export function useEscalateTicketMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ticketId, priority }: { ticketId: string; priority: string }) => {
+      await fetchWithRetry(`/tickets/${ticketId}/escalate`, {
+        method: "POST",
+        body: JSON.stringify({ priority: priority.toLowerCase() })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["supportTickets"] });
+    }
+  });
+}
+
+export function useCloseTicketMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (ticketId: string) => {
+      await fetchWithRetry(`/tickets/${ticketId}/close`, {
+        method: "POST"
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["supportTickets"] });
+    }
+  });
+}

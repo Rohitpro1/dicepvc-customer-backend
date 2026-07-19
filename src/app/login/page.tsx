@@ -162,7 +162,7 @@ export default function LoginPage() {
               <form onSubmit={handleLoginSubmit} className="space-y-md">
                 {/* Email Field */}
                 <div className="space-y-xs">
-                  <label className="font-label-sm text-label-sm uppercase tracking-wider text-outline px-base" htmlFor="email">
+                  <label className="font-label-sm text-label-sm uppercase tracking-wider text-outline" htmlFor="email">
                     Email Address
                   </label>
                   <Input
@@ -178,7 +178,7 @@ export default function LoginPage() {
 
                 {/* Password Field */}
                 <div className="space-y-xs">
-                  <label className="font-label-sm text-label-sm uppercase tracking-wider text-outline px-base" htmlFor="password">
+                  <label className="font-label-sm text-label-sm uppercase tracking-wider text-outline" htmlFor="password">
                     Password
                   </label>
                   <Input
@@ -253,7 +253,7 @@ export default function LoginPage() {
               <form onSubmit={handleRegisterSubmit} className="space-y-md">
                 {/* Full Name */}
                 <div className="space-y-xs">
-                  <label className="font-label-sm text-label-sm uppercase tracking-wider text-outline px-base" htmlFor="name">
+                  <label className="font-label-sm text-label-sm uppercase tracking-wider text-outline" htmlFor="name">
                     Full Name
                   </label>
                   <Input
@@ -269,7 +269,7 @@ export default function LoginPage() {
 
                 {/* Email Address */}
                 <div className="space-y-xs">
-                  <label className="font-label-sm text-label-sm uppercase tracking-wider text-outline px-base" htmlFor="email">
+                  <label className="font-label-sm text-label-sm uppercase tracking-wider text-outline" htmlFor="email">
                     Email Address
                   </label>
                   <Input
@@ -285,7 +285,7 @@ export default function LoginPage() {
 
                 {/* Company Name */}
                 <div className="space-y-xs">
-                  <label className="font-label-sm text-label-sm uppercase tracking-wider text-outline px-base" htmlFor="companyName">
+                  <label className="font-label-sm text-label-sm uppercase tracking-wider text-outline" htmlFor="companyName">
                     Company Name
                   </label>
                   <Input
@@ -301,7 +301,7 @@ export default function LoginPage() {
 
                 {/* Phone */}
                 <div className="space-y-xs">
-                  <label className="font-label-sm text-label-sm uppercase tracking-wider text-outline px-base" htmlFor="phone">
+                  <label className="font-label-sm text-label-sm uppercase tracking-wider text-outline" htmlFor="phone">
                     Phone Number
                   </label>
                   <Input
@@ -317,7 +317,7 @@ export default function LoginPage() {
 
                 {/* Password */}
                 <div className="space-y-xs">
-                  <label className="font-label-sm text-label-sm uppercase tracking-wider text-outline px-base" htmlFor="password">
+                  <label className="font-label-sm text-label-sm uppercase tracking-wider text-outline" htmlFor="password">
                     Password
                   </label>
                   <Input

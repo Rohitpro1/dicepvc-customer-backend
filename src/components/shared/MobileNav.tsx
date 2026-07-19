@@ -21,9 +21,9 @@ export default function MobileNav() {
 
   const navItems = [
     { label: "Dash", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Orders", href: "#", icon: CreditCard },
+    { label: "Orders", href: "/orders", icon: CreditCard },
     { label: "Add", href: "#", icon: Plus, isMiddleButton: true },
-    { label: "Wallet", href: "/billing", icon: Layers },
+    { label: "Wallet", href: "/wallet", icon: Layers },
     { label: "Admin", href: "/admin", icon: Sliders },
   ];
 

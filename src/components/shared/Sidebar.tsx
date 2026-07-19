@@ -35,20 +35,20 @@ export default function Sidebar({ mode = "customer" }: SidebarProps) {
 
   const customerLinks = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Orders", href: "#", icon: CreditCard },
+    { label: "Orders", href: "/orders", icon: CreditCard },
     { label: "Subscriptions", href: "/billing", icon: Layers },
-    { label: "Wallets", href: "#", icon: Wallet },
-    { label: "Settings", href: "#", icon: Settings },
+    { label: "Wallets", href: "/wallet", icon: Wallet },
+    { label: "Settings", href: "/settings", icon: Settings },
   ];
 
   const adminLinks = [
     { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
-    { label: "Revenue", href: "#", icon: TrendingUp },
-    { label: "Users", href: "#", icon: Users },
-    { label: "Software", href: "#", icon: Terminal },
+    { label: "Revenue", href: "/admin/revenue", icon: TrendingUp },
+    { label: "Users", href: "/admin/users", icon: Users },
+    { label: "Software", href: "/admin/software", icon: Terminal },
     { label: "Plans", href: "/billing", icon: Receipt },
-    { label: "Support", href: "#", icon: Headphones },
-    { label: "Settings", href: "#", icon: Settings },
+    { label: "Support", href: "/admin/support", icon: Headphones },
+    { label: "Settings", href: "/admin/settings", icon: Settings },
   ];
 
   const currentLinks = mode === "admin" ? adminLinks : customerLinks;
