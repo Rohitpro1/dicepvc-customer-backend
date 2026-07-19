@@ -71,20 +71,39 @@ export function CheckoutWorkflow({
         description: `Purchase ${planName} Plan`,
         order_id: orderData.order_id,
         handler: async function (response: any) {
+          console.log("[Razorpay Success Callback] Handler invoked.");
+          console.log("[Razorpay Success Callback] Response received:", JSON.stringify(response));
+
+          if (!response.razorpay_order_id || !response.razorpay_payment_id || !response.razorpay_signature) {
+            console.error("[Razorpay Success Callback] Missing required signature parameters:", {
+              order_id: !!response.razorpay_order_id,
+              payment_id: !!response.razorpay_payment_id,
+              signature: !!response.razorpay_signature
+            });
+          }
+
           setStep("pending");
           try {
+            const verifyPayload = {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            };
+            console.log("[Razorpay Success Callback] Outgoing verify-payment payload:", JSON.stringify(verifyPayload));
+
             // Verify payment signature on backend
-            await fetchWithRetry("/billing/verify-payment", {
+            const verifyRes = await fetchWithRetry("/billing/verify-payment", {
               method: "POST",
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }),
+              body: JSON.stringify(verifyPayload),
             });
+
+            console.log("[Razorpay Success Callback] verify-payment response status:", verifyRes.status);
+            const verifyResData = await verifyRes.json();
+            console.log("[Razorpay Success Callback] verify-payment response JSON:", JSON.stringify(verifyResData));
 
             setStep("success");
           } catch (err: any) {
+            console.error("[Razorpay Success Callback] Exception during verification step:", err);
             setErrorDetail(err.message || "Payment verification failed.");
             setStep("failed");
           }
