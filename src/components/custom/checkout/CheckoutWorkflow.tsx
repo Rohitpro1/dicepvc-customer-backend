@@ -64,7 +64,7 @@ export function CheckoutWorkflow({
 
       // Configure Razorpay Standard Checkout options
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_TEchnNOLHizcDZ",
         amount: orderData.amount,
         currency: orderData.currency,
         name: "DicePVC AI",
