@@ -1,31 +1,27 @@
 import { fetchWithRetry } from "./client";
-import { User } from "./types";
+import { CustomerProfile, CustomerUpdateInput } from "./types";
 
 export const profileService = {
-  async getUserProfile(): Promise<User> {
+  /**
+   * Fetches the authenticated customer's full profile.
+   * Backend: GET /api/v1/customers/me → CustomerDetailsOut
+   */
+  async getUserProfile(): Promise<CustomerProfile> {
     const res = await fetchWithRetry("/customers/me");
-    const data = await res.json();
-    return {
-      id: data.user_id,
-      email: data.email,
-      name: data.name,
-      role: data.role,
-      createdAt: data.created_at || new Date().toISOString()
-    };
+    return res.json();
   },
 
-  async updateUserProfile(name: string, email: string): Promise<User> {
+  /**
+   * Updates mutable profile fields.
+   * Backend: PUT /api/v1/customers/me → CustomerDetailsOut
+   * Only fields in CustomerUpdateInput are accepted by the backend.
+   * The backend does NOT accept `name` or `email` in this endpoint.
+   */
+  async updateUserProfile(payload: CustomerUpdateInput): Promise<CustomerProfile> {
     const res = await fetchWithRetry("/customers/me", {
       method: "PUT",
-      body: JSON.stringify({ name, email })
+      body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    return {
-      id: data.user_id,
-      email: data.email,
-      name: data.name,
-      role: data.role,
-      createdAt: data.created_at || new Date().toISOString()
-    };
-  }
+    return res.json();
+  },
 };

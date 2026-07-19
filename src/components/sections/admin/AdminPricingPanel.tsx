@@ -10,7 +10,7 @@ export default function AdminPricingPanel() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    alert(`Saving Base Price: $${basePrice}`);
+    // TODO: wire to backend admin pricing endpoint when available
   };
 
   return (

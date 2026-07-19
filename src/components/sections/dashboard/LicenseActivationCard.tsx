@@ -11,7 +11,7 @@ export default function LicenseActivationCard() {
 
   const handleVerify = (e: React.FormEvent) => {
     e.preventDefault();
-    alert(`Verifying Key: ${serialKey}`);
+    // TODO: wire to backend license verification endpoint when available
   };
 
   return (

@@ -1,24 +1,54 @@
 "use client";
 
 import React, { useState } from "react";
-import { Eye, EyeOff, Copy, RefreshCw, Laptop, Monitor } from "lucide-react";
+import { Eye, EyeOff, Copy, Laptop, Monitor, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { useActiveLicenses } from "@/hooks/useQueryHooks";
 
 export default function ActiveLicenseCard() {
   const [licenseVisible, setLicenseVisible] = useState(false);
+  const { data: licenses, isLoading } = useActiveLicenses();
+
+  const license = licenses?.[0];
 
   const handleCopyLicense = () => {
-    navigator.clipboard.writeText("DICE - 8F2J - K9L2 - X02B");
-    alert("License key copied to clipboard!");
+    if (license?.key) {
+      navigator.clipboard.writeText(license.key);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <Card className="lg:col-span-2 flex items-center justify-center min-h-[200px]" animateHover>
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </Card>
+    );
+  }
+
+  if (!license) {
+    return (
+      <Card className="lg:col-span-2 flex flex-col items-center justify-center gap-sm min-h-[200px]" animateHover>
+        <h2 className="font-headline-sm text-headline-sm font-bold text-on-surface">No Active License</h2>
+        <p className="text-on-surface-variant font-body-md">Subscribe to a plan to receive your license key.</p>
+      </Card>
+    );
+  }
+
+  const expiresFormatted = license.expiresAt
+    ? new Date(license.expiresAt).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })
+    : "N/A";
 
   return (
     <Card className="lg:col-span-2 flex flex-col gap-md" animateHover>
       <div className="flex items-center justify-between">
         <h2 className="font-headline-sm text-headline-sm font-bold text-on-surface">My Active License</h2>
-        <span className="px-3 py-1 bg-secondary-container text-on-secondary-container text-label-sm rounded-full font-bold">
-          Valid License
+        <span className={`px-3 py-1 text-label-sm rounded-full font-bold ${
+          license.status === "active"
+            ? "bg-secondary-container text-on-secondary-container"
+            : "bg-error-container text-on-error-container"
+        }`}>
+          {license.status === "active" ? "Valid License" : license.status}
         </span>
       </div>
 
@@ -29,7 +59,7 @@ export default function ActiveLicenseCard() {
             <p className="text-label-sm text-white/60 uppercase tracking-widest font-semibold">Master Activation Key</p>
             <div className="flex items-center gap-sm">
               <code className="font-headline-sm text-headline-sm tracking-widest text-primary-fixed-dim font-mono">
-                {licenseVisible ? "DICE - 8F2J - K9L2 - X02B" : "•••• - •••• - •••• - ••••"}
+                {licenseVisible ? license.key : "•••• - •••• - •••• - ••••"}
               </code>
               <button 
                 className="w-10 h-10 rounded-full hover:bg-white/10 flex items-center justify-center transition-all cursor-pointer text-white" 
@@ -45,61 +75,24 @@ export default function ActiveLicenseCard() {
               <Copy className="w-4 h-4" />
               <span className="text-label-sm">Copy</span>
             </Button>
-            <Button variant="secondary" className="flex items-center gap-xs text-white">
-              <RefreshCw className="w-4 h-4" />
-              <span className="text-label-sm">Renew</span>
-            </Button>
           </div>
         </div>
         <div className="mt-lg pt-lg border-t border-white/10 grid grid-cols-2 md:grid-cols-4 gap-md relative z-10 text-white/80">
           <div>
             <p className="text-label-sm text-white/50 font-semibold">Status</p>
-            <p className="text-label-md font-bold text-secondary-fixed">ACTIVE</p>
+            <p className="text-label-md font-bold text-secondary-fixed">{license.status.toUpperCase()}</p>
           </div>
           <div>
             <p className="text-label-sm text-white/50 font-semibold">Expires</p>
-            <p className="text-label-md font-bold">12 Oct 2025</p>
+            <p className="text-label-md font-bold">{expiresFormatted}</p>
           </div>
           <div>
             <p className="text-label-sm text-white/50 font-semibold">Devices</p>
-            <p className="text-label-md font-bold">3 / 5 Used</p>
+            <p className="text-label-md font-bold">{license.activeDevices} / {license.maxDevices} Used</p>
           </div>
           <div>
-            <p className="text-label-sm text-white/50 font-semibold">Region</p>
-            <p className="text-label-md font-bold">Global (WW)</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Device Management */}
-      <div className="space-y-sm mt-sm">
-        <h3 className="font-label-md font-bold text-on-surface-variant flex items-center gap-xs select-none">
-          <Laptop className="w-4 h-4" /> Registered Devices
-        </h3>
-        <div className="space-y-base">
-          <div className="flex items-center justify-between p-sm rounded-xl border border-outline-variant/20 hover:bg-surface-container-low transition-colors bg-white/40">
-            <div className="flex items-center gap-sm">
-              <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-on-surface-variant">
-                <Laptop className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-label-md font-bold text-on-surface">MacBook Pro M3 (Workstation)</p>
-                <p className="text-[11px] text-on-surface-variant uppercase font-semibold">Activated: 2 days ago</p>
-              </div>
-            </div>
-            <button className="text-error font-label-sm hover:underline font-bold cursor-pointer" type="button">Deactivate</button>
-          </div>
-          <div className="flex items-center justify-between p-sm rounded-xl border border-outline-variant/20 hover:bg-surface-container-low transition-colors bg-white/40">
-            <div className="flex items-center gap-sm">
-              <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-on-surface-variant">
-                <Monitor className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-label-md font-bold text-on-surface">Studio Desktop PC</p>
-                <p className="text-[11px] text-on-surface-variant uppercase font-semibold">Activated: 1 month ago</p>
-              </div>
-            </div>
-            <button className="text-error font-label-sm hover:underline font-bold cursor-pointer" type="button">Deactivate</button>
+            <p className="text-label-sm text-white/50 font-semibold">Plan</p>
+            <p className="text-label-md font-bold">{license.plan}</p>
           </div>
         </div>
       </div>

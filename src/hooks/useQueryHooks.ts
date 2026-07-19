@@ -8,6 +8,7 @@ import { subscriptionService } from "@/lib/api/subscription";
 import { downloadService } from "@/lib/api/download";
 import { supportService } from "@/lib/api/support";
 import { fetchWithRetry } from "@/lib/api/client";
+import type { CustomerUpdateInput } from "@/lib/api/types";
 
 // --- AUTH QUERIES & MUTATIONS ---
 
@@ -16,7 +17,7 @@ export function useCurrentUser() {
     queryKey: ["currentUser"],
     queryFn: () => authService.getCurrentUser(),
     retry: 1,
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -43,10 +44,25 @@ export function useLogoutMutation() {
   });
 }
 
+/**
+ * Registration requires all five fields defined by backend RegisterInput:
+ * name, email, password, company_name, phone.
+ */
 export function useRegisterMutation() {
   return useMutation({
-    mutationFn: ({ email, name, companyName, phone, password }: any) =>
-      authService.register(email, name, password), // registration parameters matching backend schemas
+    mutationFn: ({
+      email,
+      name,
+      password,
+      company_name,
+      phone,
+    }: {
+      email: string;
+      name: string;
+      password: string;
+      company_name: string;
+      phone: string;
+    }) => authService.register(email, name, password, company_name, phone),
   });
 }
 
@@ -59,13 +75,17 @@ export function useUserProfile() {
   });
 }
 
+/**
+ * Updates mutable profile fields matching backend CustomerUpdateInput:
+ * company_name, phone, billing_address, gst_number, avatar_url.
+ */
 export function useUpdateProfileMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ name, email }: { name: string; email: string }) =>
-      profileService.updateUserProfile(name, email),
-    onSuccess: (updatedUser) => {
-      queryClient.setQueryData(["userProfile"], updatedUser);
+    mutationFn: (payload: CustomerUpdateInput) =>
+      profileService.updateUserProfile(payload),
+    onSuccess: (updatedProfile) => {
+      queryClient.setQueryData(["userProfile"], updatedProfile);
       queryClient.invalidateQueries({ queryKey: ["userProfile"] });
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
     },
@@ -78,16 +98,6 @@ export function useActiveLicenses() {
   return useQuery({
     queryKey: ["activeLicenses"],
     queryFn: () => licenseService.getActiveLicenses(),
-  });
-}
-
-export function useGenerateLicenseMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (plan: string) => licenseService.generateNewLicense(plan),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["activeLicenses"] });
-    },
   });
 }
 
@@ -124,7 +134,9 @@ export function usePaymentHistory(page = 1, limit = 20) {
   return useQuery({
     queryKey: ["paymentHistory", page, limit],
     queryFn: async () => {
-      const res = await fetchWithRetry(`/billing/payments/history?page=${page}&limit=${limit}`);
+      const res = await fetchWithRetry(
+        `/billing/payments/history?page=${page}&limit=${limit}`
+      );
       return res.json();
     },
   });
@@ -211,7 +223,9 @@ export function useMarkAllNotificationsReadMutation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["unreadNotificationsCount"] });
+      queryClient.invalidateQueries({
+        queryKey: ["unreadNotificationsCount"],
+      });
     },
   });
 }
@@ -242,7 +256,9 @@ export function useAdminUsers(page = 1, limit = 20) {
   return useQuery({
     queryKey: ["adminUsers", page, limit],
     queryFn: async () => {
-      const res = await fetchWithRetry(`/admin/users?page=${page}&limit=${limit}`);
+      const res = await fetchWithRetry(
+        `/admin/users?page=${page}&limit=${limit}`
+      );
       return res.json();
     },
   });
@@ -252,7 +268,9 @@ export function useAdminSubscriptions(page = 1, limit = 20) {
   return useQuery({
     queryKey: ["adminSubscriptions", page, limit],
     queryFn: async () => {
-      const res = await fetchWithRetry(`/admin/subscriptions?page=${page}&limit=${limit}`);
+      const res = await fetchWithRetry(
+        `/admin/subscriptions?page=${page}&limit=${limit}`
+      );
       return res.json();
     },
   });
@@ -262,7 +280,9 @@ export function useAdminLicenses(page = 1, limit = 20) {
   return useQuery({
     queryKey: ["adminLicenses", page, limit],
     queryFn: async () => {
-      const res = await fetchWithRetry(`/admin/licenses?page=${page}&limit=${limit}`);
+      const res = await fetchWithRetry(
+        `/admin/licenses?page=${page}&limit=${limit}`
+      );
       return res.json();
     },
   });
@@ -272,7 +292,9 @@ export function useAdminAuditLogs(page = 1, limit = 20) {
   return useQuery({
     queryKey: ["adminAuditLogs", page, limit],
     queryFn: async () => {
-      const res = await fetchWithRetry(`/admin/audit-logs?page=${page}&limit=${limit}`);
+      const res = await fetchWithRetry(
+        `/admin/audit-logs?page=${page}&limit=${limit}`
+      );
       return res.json();
     },
   });

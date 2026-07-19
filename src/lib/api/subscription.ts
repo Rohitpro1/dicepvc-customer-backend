@@ -6,6 +6,7 @@ export const subscriptionService = {
     const res = await fetchWithRetry("/billing/subscriptions/my");
     const data = await res.json();
     return {
+      id: data.id,
       planName: data.planName,
       status: data.status,
       price: data.price,

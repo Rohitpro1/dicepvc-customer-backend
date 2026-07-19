@@ -14,7 +14,7 @@ export default function BillingPage() {
     showCheckout,
     startCheckout,
     cancelCheckout,
-  } = useCheckout(3000);
+  } = useCheckout();
 
   const planFeatures = {
     standard: [

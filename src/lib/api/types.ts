@@ -3,6 +3,7 @@ export interface User {
   email: string;
   name: string;
   role: "admin" | "customer" | "support" | "super_admin";
+  status: string;
   createdAt: string;
 }
 
@@ -15,7 +16,7 @@ export interface LicenseKey {
   id: string;
   key: string;
   plan: string;
-  status: "Active" | "Expired" | "Suspended";
+  status: string;
   createdAt: string;
   expiresAt: string;
   activeDevices: number;
@@ -23,8 +24,9 @@ export interface LicenseKey {
 }
 
 export interface SubscriptionDetails {
+  id?: string;
   planName: string;
-  status: "Active" | "Past Due" | "Canceled";
+  status: string;
   price: string;
   period: "month" | "year";
   nextBillingDate: string;
@@ -48,4 +50,41 @@ export interface SupportTicket {
   priority: "Low" | "Medium" | "High" | "Critical";
   category: "Billing" | "Technical" | "License" | "General";
   createdAt: string;
+}
+
+/** Matches backend CustomerDetailsOut exactly. */
+export interface CustomerProfile {
+  id: string;
+  user_id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+  company_name: string;
+  phone: string;
+  gst_number?: string | null;
+  avatar_url?: string | null;
+  billing_address: {
+    street?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postal_code?: string | null;
+    country?: string | null;
+  };
+  created_at: string;
+}
+
+/** Matches backend CustomerUpdateInput. */
+export interface CustomerUpdateInput {
+  company_name?: string;
+  phone?: string;
+  billing_address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    postal_code?: string;
+    country?: string;
+  };
+  gst_number?: string;
+  avatar_url?: string;
 }

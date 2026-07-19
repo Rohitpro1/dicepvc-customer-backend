@@ -30,6 +30,7 @@ export function CheckoutWorkflow({
 
   const [email, setEmail] = useState("");
   const [errorDetail, setErrorDetail] = useState("Payment failed. Please try again.");
+  const [activatedLicenseKey, setActivatedLicenseKey] = useState("");
 
   useEffect(() => {
     // Load Razorpay Checkout script dynamically
@@ -44,31 +45,26 @@ export function CheckoutWorkflow({
 
   if (!isOpen) return null;
 
-  const handleCheckoutSubmit = async (userEmail: string, card: string) => {
+  const handleCheckoutSubmit = async (userEmail: string, _card: string) => {
     setEmail(userEmail);
     setStep("pending");
 
     try {
-      // 1. Convert price to numerical amount in paise (e.g. "$129.00" -> 12900 paise)
+      // Convert price to numerical amount in paise (e.g. "$129.00" -> 12900 paise)
       const numericalPrice = parseFloat(price.replace(/[^0-9.]/g, ""));
       const amountInPaise = isNaN(numericalPrice) ? 12900 : Math.round(numericalPrice * 100);
 
-      // 2. Create Razorpay order on backend
+      // Create Razorpay order on backend
       const res = await fetchWithRetry("/billing/create-order", {
         method: "POST",
-        body: JSON.stringify({ amount: amountInPaise, currency: "INR" })
+        body: JSON.stringify({ amount: amountInPaise, currency: "INR" }),
       });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to create order on backend.");
-      }
 
       const orderData = await res.json();
 
-      // 3. Configure Razorpay Standard Checkout options
+      // Configure Razorpay Standard Checkout options
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_TEchnNOLHizcDZ",
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: orderData.amount,
         currency: orderData.currency,
         name: "DicePVC AI",
@@ -77,23 +73,17 @@ export function CheckoutWorkflow({
         handler: async function (response: any) {
           setStep("pending");
           try {
-            // 4. Verify payment signature on backend
-            const verifyRes = await fetchWithRetry("/billing/verify-payment", {
+            // Verify payment signature on backend
+            await fetchWithRetry("/billing/verify-payment", {
               method: "POST",
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature
-              })
+                razorpay_signature: response.razorpay_signature,
+              }),
             });
 
-            if (verifyRes.ok) {
-              setStep("success");
-            } else {
-              const errorData = await verifyRes.json();
-              setErrorDetail(errorData.error || "Payment verification failed.");
-              setStep("failed");
-            }
+            setStep("success");
           } catch (err: any) {
             setErrorDetail(err.message || "Payment verification failed.");
             setStep("failed");
@@ -107,10 +97,9 @@ export function CheckoutWorkflow({
         },
         modal: {
           ondismiss: function () {
-            console.log("Razorpay checkout modal closed by user.");
             setStep("checkout");
-          }
-        }
+          },
+        },
       };
 
       const rzp = new (window as any).Razorpay(options);
@@ -119,21 +108,39 @@ export function CheckoutWorkflow({
         setStep("failed");
       });
       rzp.open();
-
     } catch (err: any) {
       setErrorDetail(err.message || "Failed to initiate payment session.");
       setStep("failed");
     }
   };
 
-  const handleProceedToLicense = () => {
+  /**
+   * After payment success, fetch the real license key from backend
+   * instead of using a hardcoded placeholder.
+   */
+  const handleProceedToLicense = async () => {
     setStep("license_loading");
 
-    // Simulate Key Generation latency
-    setTimeout(() => {
+    try {
+      const res = await fetchWithRetry("/licenses/my");
+      const licenses = await res.json();
+
+      // Take the most recently created license key
+      if (licenses && licenses.length > 0) {
+        const latest = licenses[licenses.length - 1];
+        setActivatedLicenseKey(latest.license_key || latest.key || "");
+      } else {
+        setActivatedLicenseKey("Pending generation…");
+      }
+
       setStep("activated");
       if (onSuccess) onSuccess();
-    }, 2000);
+    } catch {
+      // Fallback: proceed to activation even if license fetch fails
+      setActivatedLicenseKey("License pending — check your dashboard.");
+      setStep("activated");
+      if (onSuccess) onSuccess();
+    }
   };
 
   const handleCloseAll = () => {
@@ -179,7 +186,7 @@ export function CheckoutWorkflow({
     case "activated":
       return (
         <ActivationSuccess
-          licenseKey="PRO-4X92-KYL8-VM3Q"
+          licenseKey={activatedLicenseKey}
           onClose={handleCloseAll}
         />
       );

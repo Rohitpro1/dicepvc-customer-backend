@@ -14,9 +14,12 @@ export function ActivationSuccess({
   licenseKey,
   onClose,
 }: ActivationSuccessProps) {
+  const [copied, setCopied] = React.useState(false);
+
   const handleCopy = () => {
     navigator.clipboard.writeText(licenseKey);
-    alert("License key copied to clipboard!");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -43,14 +46,17 @@ export function ActivationSuccess({
               <button 
                 className="w-10 h-10 rounded-full hover:bg-primary/10 flex items-center justify-center text-primary transition-all cursor-pointer"
                 onClick={handleCopy}
-                title="Copy License"
+                title={copied ? "Copied!" : "Copy License"}
                 type="button"
               >
                 <Copy className="w-5 h-5" />
               </button>
             </div>
+            {copied && (
+              <p className="text-[11px] text-secondary font-bold mt-xs select-none">Copied to clipboard!</p>
+            )}
             <p className="text-[11px] text-on-surface-variant mt-md font-medium select-none">
-              Expires: Oct 12, 2025 • Priority Support Active
+              Priority Support Active
             </p>
           </div>
 

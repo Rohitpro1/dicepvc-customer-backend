@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { 
   DollarSign, 
   UserPlus, 
@@ -14,23 +14,10 @@ import UrgentTickets from "@/components/sections/admin/UrgentTickets";
 import ActiveUsersTable from "@/components/sections/admin/ActiveUsersTable";
 import AdminPricingPanel from "@/components/sections/admin/AdminPricingPanel";
 import Skeleton from "@/components/ui/Skeleton";
+import { useAdminStats } from "@/hooks/useQueryHooks";
 
 export default function AdminDashboard() {
-  const [revenue, setRevenue] = useState(1482900);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Live revenue updates every 8 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setRevenue((prev) => prev + Math.floor(Math.random() * 50));
-    }, 8000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
+  const { data: stats, isLoading } = useAdminStats();
 
   if (isLoading) {
     return (
@@ -72,6 +59,8 @@ export default function AdminDashboard() {
     );
   }
 
+  const revenueVal = stats?.total_revenue !== undefined ? `₹${stats.total_revenue.toLocaleString()}` : "₹0";
+
   return (
     <main className="p-base md:p-md lg:p-lg min-h-screen relative overflow-y-auto max-w-container-max mx-auto w-full">
       {/* Background Glows */}
@@ -105,31 +94,31 @@ export default function AdminDashboard() {
       {/* Stats Grid using reusable StatCard */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md mb-xl">
         <StatCard
-          label="Monthly Revenue"
-          value={revenue}
+          label="Total Revenue"
+          value={revenueVal}
           icon={<DollarSign className="w-5 h-5 text-primary" />}
-          trend="+12.5%"
+          trend="Cumulative"
           trendType="positive"
         />
         <StatCard
-          label="New Users"
-          value={12402}
+          label="Total Users"
+          value={stats?.total_users ?? 0}
           icon={<UserPlus className="w-5 h-5 text-secondary" />}
-          trend="+4.2%"
+          trend="Registered"
           trendType="positive"
         />
         <StatCard
-          label="License Renewals"
-          value="94.8%"
+          label="Active Subscriptions"
+          value={stats?.active_subscriptions ?? 0}
           icon={<CheckCircle className="w-5 h-5 text-tertiary" />}
-          trend="-1.1%"
-          trendType="negative"
+          trend="Paying"
+          trendType="positive"
         />
         <StatCard
           label="Open Tickets"
-          value={42}
+          value={stats?.open_tickets ?? 0}
           icon={<AlertCircle className="w-5 h-5 text-error" />}
-          trend="Active"
+          trend="Needs Attention"
           trendType="neutral"
         />
       </div>
@@ -140,37 +129,19 @@ export default function AdminDashboard() {
 
         {/* License trends details */}
         <StatCard
-          label="License Trends"
-          value="64%"
-          trend="Activation by plan type"
+          label="Platform Licenses"
+          value={stats?.total_licenses ?? 0}
+          trend="Total issued serials"
           className="h-[400px] flex flex-col justify-between"
         >
           <div className="space-y-md flex-1 flex flex-col justify-center">
             <div className="space-y-xs">
               <div className="flex justify-between font-label-md">
-                <span className="text-on-surface font-semibold">Enterprise AI</span>
-                <span className="font-bold">64%</span>
+                <span className="text-on-surface font-semibold">Total Issued Serials</span>
+                <span className="font-bold">{stats?.total_licenses ?? 0}</span>
               </div>
               <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden">
-                <div className="h-full bg-primary w-[64%] rounded-full"></div>
-              </div>
-            </div>
-            <div className="space-y-xs">
-              <div className="flex justify-between font-label-md">
-                <span className="text-on-surface font-semibold">Professional Plus</span>
-                <span className="font-bold">28%</span>
-              </div>
-              <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden">
-                <div className="h-full bg-secondary-fixed-dim w-[28%] rounded-full"></div>
-              </div>
-            </div>
-            <div className="space-y-xs">
-              <div className="flex justify-between font-label-md">
-                <span className="text-on-surface font-semibold">Legacy Base</span>
-                <span className="font-bold">8%</span>
-              </div>
-              <div className="w-full h-2 bg-surface-container rounded-full overflow-hidden">
-                <div className="h-full bg-tertiary-container w-[8%] rounded-full"></div>
+                <div className="h-full bg-primary w-[100%] rounded-full"></div>
               </div>
             </div>
           </div>
